@@ -10,6 +10,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- JSQR Library for QR scanning -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+    <!-- NEW: GoMaps.pro JavaScript API -->
+    <!-- Mengganti Google Maps API dengan GoMaps.pro API -->
+    <!-- Libraries=places tidak lagi diperlukan di sini karena kita akan fetch manual -->
+    <script async defer src="https://maps.gomaps.pro/maps/api/js?key=AlzaSyoHFLfUbmoPGRVME4DsDxqAUtx5m1RkFuI&callback=initMap"></script>
+
     <style>
         body { 
             font-family: 'Inter', sans-serif; 
@@ -189,6 +195,49 @@
             /* Allow scrolling on the main content once visible */
             overflow: auto; 
         }
+
+        /* Styles for the Google Map */
+        #officeMap {
+            height: 400px; /* Set a fixed height for the map */
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        /* Styling for autocomplete suggestions */
+        /* Pastikan posisi relatif pada parent grid div */
+        .relative > .md\\:col-span-2 > #officeAddressSuggestions {
+            position: absolute; 
+            z-index: 20; 
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); 
+            max-height: 200px;
+            overflow-y: auto;
+            width: calc(100% - 0px); /* Adjust based on input width, no extra padding needed here */
+            left: 0; 
+            right: 0;
+            top: calc(100% + 5px); /* Position below the input field */
+        }
+
+        #officeAddressSuggestions button {
+            display: block;
+            width: 100%;
+            padding: 0.75rem 1rem; 
+            text-align: left;
+            border-bottom: 1px solid #f3f4f6; 
+            color: #4b5563; 
+            transition: background-color 0.2s ease;
+        }
+
+        #officeAddressSuggestions button:hover {
+            background-color: #f9fafb; 
+        }
+
+        #officeAddressSuggestions button:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
@@ -308,6 +357,43 @@
         <!-- Admin Dashboard Section -->
         <section id="adminDashboard" class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-6 hidden">
             <h2 class="text-3xl font-extrabold text-center mb-8 select-none">Dashboard Admin - Aktivitas & Karyawan</h2>
+
+            <!-- NEW: Office Location Settings -->
+            <div class="bg-white rounded-2xl shadow p-4 sm:p-6 mb-8">
+                <h3 class="text-2xl font-bold mb-4 text-gray-800">Pengaturan Lokasi Kantor</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 relative"> <!-- Tambahkan relative di sini untuk positioning absolute suggestions -->
+                    <div class="md:col-span-2">
+                        <label for="officeAddressInput" class="block text-sm font-medium text-gray-700 mb-1">Alamat Kantor (Teks)</label>
+                        <input type="text" id="officeAddressInput" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg" placeholder="Contoh: Jl. Sudirman No. 123, Jakarta" required>
+                        <p class="text-gray-500 text-sm mt-1">Masukkan alamat lengkap kantor Anda. Ini akan dikonversi menjadi koordinat.</p>
+                        <!-- NEW: Container untuk saran autocomplete -->
+                        <div id="officeAddressSuggestions" class="absolute z-20 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 hidden"></div>
+                    </div>
+                    <div>
+                        <label for="officeLatInput" class="block text-sm font-medium text-gray-700 mb-1">Latitude Kantor</label>
+                        <input type="number" id="officeLatInput" step="0.000001" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg" readonly>
+                    </div>
+                    <div>
+                        <label for="officeLonInput" class="block text-sm font-medium text-gray-700 mb-1">Longitude Kantor</label>
+                        <input type="number" id="officeLonInput" step="0.000001" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg" readonly>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="acceptRadiusInput" class="block text-sm font-medium text-gray-700 mb-1">Jarak Radius Diterima (meter)</label>
+                        <input type="number" id="acceptRadiusInput" min="10" max="1000" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg" required>
+                        <p class="text-gray-500 text-sm mt-1">Rentang di mana absensi dianggap di lokasi kantor (10 - 1000 meter).</p>
+                    </div>
+                    <div id="officeMap" class="md:col-span-2"></div>
+                    <div class="md:col-span-2 flex justify-end gap-3 mt-4">
+                        <button type="button" id="useCurrentLocationBtn" class="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow hover:bg-purple-700 transition focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2">
+                            Gunakan Lokasi Saat Ini
+                        </button>
+                        <button type="button" id="saveOfficeLocationBtn" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow hover:bg-green-700 transition focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2">
+                            Simpan Lokasi Kantor
+                        </button>
+                    </div>
+                    <p id="locationSaveMsg" class="md:col-span-2 text-sm text-center font-medium mt-2 hidden"></p>
+                </div>
+            </div>
 
             <!-- Attendance Settings -->
             <div class="bg-white rounded-2xl shadow p-4 sm:p-6 mb-8">
@@ -456,7 +542,7 @@
                 </div>
                 <button type="button" id="closeQrScannerModalBtn" class="mt-6 w-full py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400">Tutup Scanner</button>
             </div>
-        </div>
+        </section>
 
 
         <!-- Footer -->
@@ -495,17 +581,31 @@
     let minimumLoadingTimeElapsed = false;
     let pageContentLoaded = false;
 
+    // NEW: Global variables for Office Location
+    let officeLocation = {
+        latitude: 3.5890625,  // Default: Medan, North Sumatra
+        longitude: 98.6679375, // Default: Medan, North Sumatra
+        acceptRadius: 200, // Default: 200 meters
+        address: "Medan, Sumatera Utara, Indonesia" // NEW: Default address
+    };
+    let map;
+    let officeMarker;
+    // Removed geocoder, autocompleteService, placesService as they will be handled via direct fetch
+    
+    // GoMaps.pro API Key
+    const MAPS_API_KEY = 'AlzaSyoHFLfUbmoPGRVME4DsDxqAUtx5m1RkFuI'; 
+
+    // The GoMaps.pro API script calls `initMap` when it's loaded.
+    // We declare it globally (outside the IIFE) so it's accessible.
+    window.initMap = function() {
+        console.log("GoMaps.pro API loaded. Map objects will be available via `google.maps`.");
+        // No need to initialize geocoder, autocompleteService, placesService here anymore
+        // as we will use direct fetch calls for GoMaps.pro REST APIs.
+    };
+
     // Self-executing anonymous function for app logic
     (() => {
-        // Admin hardcoded credentials - REMOVED!
-        // const ADMIN_USERNAME = "admin";
-        // const ADMIN_PASSWORD = "password123";
-        const RESET_PIN = "123"; // This PIN is for resetting history, not for admin login
-
-        // Office coordinates (Medan, North Sumatra, Indonesia)
-        const OFFICE_LAT = 3.5890625;
-        const OFFICE_LON = 98.6679375;
-        const ACCEPT_RADIUS_METERS = 200; // 200 meter radius
+        const RESET_PIN = "123"; 
 
         // Elements
         const adminLoginBtn = document.getElementById('adminLoginBtn');
@@ -513,19 +613,18 @@
         const adminLoginModal = document.getElementById('adminLoginModal');
         const loginModalContent = document.getElementById('loginModalContent');
         const adminLoginForm = document.getElementById('adminLoginForm');
-        const adminEmailInput = document.getElementById('adminEmail'); // New: Email input
-        const adminPasswordInput = document.getElementById('adminPassword'); // Renamed for clarity
+        const adminEmailInput = document.getElementById('adminEmail'); 
+        const adminPasswordInput = document.getElementById('adminPassword'); 
         const loginErrorMsg = document.getElementById('loginErrorMsg');
 
         const heroSection = document.getElementById('heroSection');
         const fiturSection = document.getElementById('fitur');
         const absenSection = document.getElementById('absen');
         const adminDashboard = document.getElementById('adminDashboard');
-        // Removed attendanceTableBody as it's now dynamically created per employee
-        const attendanceListContainer = document.getElementById('attendanceListContainer'); // New container for employee-specific tables
+        const attendanceListContainer = document.getElementById('attendanceListContainer'); 
         const noAttendanceMsg = document.getElementById('noAttendanceMsg');
 
-        const employeeNameInput = document.getElementById('employeeName'); // Manual employee name input
+        const employeeNameInput = document.getElementById('employeeName'); 
         const detectBtn = document.getElementById('detectBtn');
         const locationCard = document.getElementById('locationCard');
 
@@ -535,7 +634,6 @@
         const resetErrorMsg = document.getElementById('resetErrorMsg');
         const confirmResetBtn = document.getElementById('confirmResetBtn');
         const cancelResetBtn = document.getElementById('cancelResetBtn');
-        // Removed firebaseLoadingOverlay as it's replaced by customLoadingOverlay
 
         // New Employee Management Elements
         const addEmployeeBtn = document.getElementById('addEmployeeBtn');
@@ -572,9 +670,9 @@
         const qrScanMessage = document.getElementById('qrScanMessage');
         const qrScanError = document.getElementById('qrScanError');
         const closeQrScannerModalBtn = document.getElementById('closeQrScannerModalBtn');
-        const selectImageBtn = document.getElementById('selectImageBtn'); // New: Select from Gallery button
-        const qrImageInput = document.getElementById('qrImageInput'); // New: Hidden file input
-        const startCameraScanBtn = document.getElementById('startCameraScanBtn'); // New: Start camera scan button
+        const selectImageBtn = document.getElementById('selectImageBtn'); 
+        const qrImageInput = document.getElementById('qrImageInput'); 
+        const startCameraScanBtn = document.getElementById('startCameraScanBtn'); 
 
         // NEW: Attendance Settings Elements
         const attendanceSettingsForm = document.getElementById('attendanceSettingsForm');
@@ -583,14 +681,23 @@
         const settingsSaveMsg = document.getElementById('settingsSaveMsg');
         const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 
+        // NEW: Office Location Elements
+        const officeAddressInput = document.getElementById('officeAddressInput'); 
+        const officeAddressSuggestions = document.getElementById('officeAddressSuggestions'); // NEW: Suggestions container
+        const officeLatInput = document.getElementById('officeLatInput');
+        const officeLonInput = document.getElementById('officeLonInput');
+        const acceptRadiusInput = document.getElementById('acceptRadiusInput');
+        const officeMapDiv = document.getElementById('officeMap');
+        const useCurrentLocationBtn = document.getElementById('useCurrentLocationBtn');
+        const saveOfficeLocationBtn = document.getElementById('saveOfficeLocationBtn');
+        const locationSaveMsg = document.getElementById('locationSaveMsg');
+
+
         // NEW: Custom Loading Screen Elements
         const customLoadingOverlay = document.getElementById('customLoadingOverlay');
         const contentWrapper = document.getElementById('contentWrapper');
 
         // --- Firebase Initialization and Authentication ---
-        // Removed firebaseLoadingOverlay.classList.remove('hidden'); as it's now handled by customLoadingOverlay
-        
-        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDVdSSeAlhK1sgjyeSLSdNW3zesatzPKDE",
             authDomain: "data-absen-2025.firebaseapp.com",
@@ -610,24 +717,16 @@
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 isFirebaseReady = true;
-                // Check if the logged-in user is the admin (you'll set this up in Firebase console)
-                // For now, we assume any logged-in user is admin for simplicity,
-                // or you can implement custom claims later.
-                // If you want to restrict admin access to a specific UID, you can do:
-                // if (user.uid === 'YOUR_ADMIN_UID_HERE') { isAdminLoggedIn = true; }
-                // For now, we'll rely on the manual login to set isAdminLoggedIn.
-                
-                await loadAttendanceSettings(); // Load settings immediately after Firebase is ready
-                updateUIForAdmin(); // Update UI based on admin status
-                setupFirestoreListener(); // Setup listeners for both attendance and employees
-                checkAndHideLoader(); // Check if all conditions are met to hide the loader
+                await loadAttendanceSettings(); 
+                await loadOfficeLocation(); 
+                updateUIForAdmin(); 
+                setupFirestoreListener(); 
+                checkAndHideLoader(); 
             } else {
                 try {
                     await signInAnonymously(auth);
-                    // No need for a setTimeout here, as checkAndHideLoader will be called when isFirebaseReady is set to true.
                 } catch (error) {
                     console.error("Firebase Auth Error:", error);
-                    // Even on error, attempt to hide loader so user can interact
                     checkAndHideLoader(); 
                     locationCard.innerHTML = `
                         <div class="bg-red-50 border border-red-200 text-red-600 rounded-lg p-4 mt-4 select-none">
@@ -642,12 +741,10 @@
         function checkAndHideLoader() {
             if (isFirebaseReady && pageContentLoaded && minimumLoadingTimeElapsed) {
                 customLoadingOverlay.classList.add('fade-out');
-                // Remove the overlay from DOM after transition to avoid any clicks/interactions
                 customLoadingOverlay.addEventListener('transitionend', () => {
                     customLoadingOverlay.style.display = 'none';
-                    // Allow scrolling on the main content
                     document.body.style.overflow = 'auto'; 
-                    contentWrapper.classList.add('visible'); // Show main content
+                    contentWrapper.classList.add('visible'); 
                 }, { once: true });
             }
         }
@@ -673,16 +770,16 @@
             onSnapshot(attendanceColRef, (snapshot) => {
                 const records = [];
                 snapshot.forEach(doc => {
-                    records.push({ id: doc.id, ...doc.data() }); // Add Firebase document ID
+                    records.push({ id: doc.id, ...doc.data() }); 
                 });
-                records.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)); // Sort by timestamp
+                records.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)); 
                 currentAttendanceRecordsWithIds = records;
-                if (isAdminLoggedIn) { // Only render if admin is logged in
+                if (isAdminLoggedIn) { 
                     renderAttendanceTable();
                 }
             }, (error) => {
                 console.error("Error fetching attendance records from Firestore:", error);
-                if (isAdminLoggedIn) { // Show error only if admin dashboard is active
+                if (isAdminLoggedIn) { 
                     noAttendanceMsg.textContent = `Gagal memuat history absensi: ${error.message}`;
                     noAttendanceMsg.classList.remove('hidden');
                 }
@@ -693,39 +790,35 @@
             onSnapshot(employeesColRef, (snapshot) => {
                 const employees = [];
                 snapshot.forEach(doc => {
-                    employees.push({ id: doc.id, ...doc.data() }); // The 'id' here is the custom employee ID, not doc.id
+                    employees.push({ id: doc.id, ...doc.data() }); 
                 });
-                employees.sort((a, b) => a.name.localeCompare(b.name)); // Sort by name
+                employees.sort((a, b) => a.name.localeCompare(b.name)); 
                 currentRegisteredEmployees = employees;
-                if (isAdminLoggedIn) { // Only render if admin is logged in
+                if (isAdminLoggedIn) { 
                     renderEmployeesTable();
                 }
             }, (error) => {
                 console.error("Error fetching employee records from Firestore:", error);
-                if (isAdminLoggedIn) { // Show error only if admin dashboard is active
+                if (isAdminLoggedIn) { 
                     noEmployeesMsg.textContent = `Gagal memuat daftar karyawan: ${error.message}`;
                     noEmployeesMsg.classList.remove('hidden');
                 }
             });
 
             // Listener for Attendance Settings
-            const settingsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'attendanceSettings');
-            onSnapshot(settingsDocRef, (docSnap) => {
+            const attendanceSettingsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'attendanceSettings');
+            onSnapshot(attendanceSettingsDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     lateCutoffHour = data.lateCutoffHour !== undefined ? data.lateCutoffHour : 7;
                     lateCutoffMinute = data.lateCutoffMinute !== undefined ? data.lateCutoffMinute : 0;
                     latePenaltyPerMinute = data.latePenaltyPerMinute !== undefined ? data.latePenaltyPerMinute : 1000;
                     
-                    // Update admin settings form inputs if admin is logged in
                     if (isAdminLoggedIn) {
                         lateCutoffTimeInput.value = `${String(lateCutoffHour).padStart(2, '0')}:${String(lateCutoffMinute).padStart(2, '0')}`;
                         latePenaltyAmountInput.value = latePenaltyPerMinute;
                     }
                 } else {
-                    // If settings document doesn't exist, create it with default values
-                    // This will be handled by the saveSettings function if user explicitly saves.
-                    // For now, ensure global variables hold default values.
                     lateCutoffHour = 7;
                     lateCutoffMinute = 0;
                     latePenaltyPerMinute = 1000;
@@ -742,6 +835,57 @@
                     settingsSaveMsg.classList.remove('hidden');
                 }
             });
+
+            // NEW: Listener for Office Location Settings
+            const officeLocationDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'officeLocation');
+            onSnapshot(officeLocationDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    officeLocation.latitude = data.latitude !== undefined ? data.latitude : 3.5890625;
+                    officeLocation.longitude = data.longitude !== undefined ? data.longitude : 98.6679375;
+                    officeLocation.acceptRadius = data.acceptRadius !== undefined ? data.acceptRadius : 200;
+                    officeLocation.address = data.address !== undefined ? data.address : "Medan, Sumatera Utara, Indonesia"; // NEW: Load address
+
+                    // Update admin location form inputs if admin is logged in
+                    if (isAdminLoggedIn) {
+                        officeLatInput.value = officeLocation.latitude;
+                        officeLonInput.value = officeLocation.longitude;
+                        acceptRadiusInput.value = officeLocation.acceptRadius;
+                        officeAddressInput.value = officeLocation.address; // NEW: Update address input
+                        if (map && officeMarker) {
+                            const newLatLng = new google.maps.LatLng(officeLocation.latitude, officeLocation.longitude); 
+                            officeMarker.setPosition(newLatLng);
+                            map.setCenter(newLatLng);
+                            map.setZoom(15); 
+                        }
+                    }
+                } else {
+                    // If document doesn't exist, use default values for officeLocation
+                    officeLocation.latitude = 3.5890625;
+                    officeLocation.longitude = 98.6679375;
+                    officeLocation.acceptRadius = 200;
+                    officeLocation.address = "Medan, Sumatera Utara, Indonesia"; // NEW: Default address
+                    if (isAdminLoggedIn) {
+                        officeLatInput.value = officeLocation.latitude;
+                        officeLonInput.value = officeLocation.longitude;
+                        acceptRadiusInput.value = officeLocation.acceptRadius;
+                        officeAddressInput.value = officeLocation.address; // NEW: Update address input
+                        if (map && officeMarker) {
+                            const newLatLng = new google.maps.LatLng(officeLocation.latitude, officeLocation.longitude); 
+                            officeMarker.setPosition(newLatLng);
+                            map.setCenter(newLatLng);
+                            map.setZoom(15);
+                        }
+                    }
+                }
+            }, (error) => {
+                console.error("Error fetching office location settings from Firestore:", error);
+                if (isAdminLoggedIn) {
+                    locationSaveMsg.textContent = `Gagal memuat lokasi kantor: ${error.message}`;
+                    locationSaveMsg.classList.add('text-red-600');
+                    locationSaveMsg.classList.remove('hidden');
+                }
+            });
         }
 
         async function loadAttendanceSettings() {
@@ -755,13 +899,10 @@
                     lateCutoffMinute = data.lateCutoffMinute !== undefined ? data.lateCutoffMinute : 0;
                     latePenaltyPerMinute = data.latePenaltyPerMinute !== undefined ? data.latePenaltyPerMinute : 1000;
                 } else {
-                    // If no settings exist, initialize with defaults
-                    // This creates the document if it doesn't exist
-                    await saveAttendanceSettings(7, 0, 1000);
+                    await saveAttendanceSettings(7, 0, 1000); 
                 }
             } catch (e) {
                 console.error("Error loading attendance settings:", e);
-                // Fallback to default values if loading fails
                 lateCutoffHour = 7;
                 lateCutoffMinute = 0;
                 latePenaltyPerMinute = 1000;
@@ -797,6 +938,66 @@
             }
         }
 
+        // NEW: Load Office Location from Firestore
+        async function loadOfficeLocation() {
+            if (!isFirebaseReady) return;
+            const officeLocationDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'officeLocation');
+            try {
+                const docSnap = await getDoc(officeLocationDocRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    officeLocation.latitude = data.latitude !== undefined ? data.latitude : 3.5890625;
+                    officeLocation.longitude = data.longitude !== undefined ? data.longitude : 98.6679375;
+                    officeLocation.acceptRadius = data.acceptRadius !== undefined ? data.acceptRadius : 200;
+                    officeLocation.address = data.address !== undefined ? data.address : "Medan, Sumatera Utara, Indonesia"; // NEW: Load address
+                } else {
+                    await saveOfficeLocation(officeLocation.latitude, officeLocation.longitude, officeLocation.acceptRadius, officeLocation.address);
+                }
+            } catch (e) {
+                console.error("Error loading office location:", e);
+                officeLocation.latitude = 3.5890625;
+                officeLocation.longitude = 98.6679375;
+                officeLocation.acceptRadius = 200;
+                officeLocation.address = "Medan, Sumatera Utara, Indonesia";
+            }
+        }
+
+        // NEW: Save Office Location to Firestore
+        async function saveOfficeLocation(lat, lon, radius, address) { // Added address parameter
+            if (!isFirebaseReady) {
+                locationSaveMsg.textContent = 'Server tidak siap. Coba lagi.';
+                locationSaveMsg.classList.add('text-red-600');
+                locationSaveMsg.classList.remove('hidden');
+                return false;
+            }
+            const officeLocationDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'officeLocation');
+            try {
+                await setDoc(officeLocationDocRef, {
+                    latitude: lat,
+                    longitude: lon,
+                    acceptRadius: radius,
+                    address: address // NEW: Save address
+                });
+                officeLocation.latitude = lat;
+                officeLocation.longitude = lon;
+                officeLocation.acceptRadius = radius;
+                officeLocation.address = address; // NEW: Update global address
+                console.log("Office location saved successfully!");
+                locationSaveMsg.textContent = 'Lokasi kantor berhasil disimpan!';
+                locationSaveMsg.classList.remove('text-red-600', 'hidden');
+                locationSaveMsg.classList.add('text-green-600');
+                setTimeout(() => locationSaveMsg.classList.add('hidden'), 3000);
+                return true;
+            } catch (e) {
+                console.error("Error saving office location: ", e);
+                locationSaveMsg.textContent = `Gagal menyimpan lokasi kantor: ${e.message}`;
+                locationSaveMsg.classList.remove('hidden', 'text-green-600');
+                locationSaveMsg.classList.add('text-red-600');
+                return false;
+            }
+        }
+
+
         async function saveAttendanceRecord(record) {
             if (!isFirebaseReady) {
                 locationCard.innerHTML = `
@@ -829,7 +1030,6 @@
                 return false;
             }
             try {
-                // Use custom employee ID as document ID for easy lookup
                 const employeeDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'registeredEmployees', id);
                 await setDoc(employeeDocRef, { name: name, id: id });
                 return true;
@@ -859,23 +1059,18 @@
             }
         }
 
-        // This function is now responsible for rendering individual employee attendance tables
         function renderAttendanceTable() {
-            // Get the container where individual employee attendance blocks will be added
             const attendanceListContainer = document.getElementById('attendanceListContainer');
-            attendanceListContainer.innerHTML = ''; // Clear existing content before re-rendering
+            attendanceListContainer.innerHTML = ''; 
 
-            // Check if there are any attendance records at all
             if (currentAttendanceRecordsWithIds.length === 0) {
-                noAttendanceMsg.classList.remove('hidden'); // Show the "no data" message
-                return; // Exit if no records
+                noAttendanceMsg.classList.remove('hidden'); 
+                return; 
             } else {
-                noAttendanceMsg.classList.add('hidden'); // Hide the "no data" message
+                noAttendanceMsg.classList.add('hidden'); 
             }
 
-            // Group attendance records by employee ID
-            // The `record.id` in `currentAttendanceRecordsWithIds` array refers to the `employeeId`
-            const groupedAttendance = new Map(); // Map: employeeId -> Array of attendance records
+            const groupedAttendance = new Map(); 
             for (const record of currentAttendanceRecordsWithIds) {
                 if (!groupedAttendance.has(record.id)) {
                     groupedAttendance.set(record.id, []);
@@ -883,15 +1078,12 @@
                 groupedAttendance.get(record.id).push(record);
             }
 
-            // Iterate through each grouped employee's records and create a separate table/card
             for (const [employeeId, records] of groupedAttendance.entries()) {
-                // Find the employee's current registered name; fallback to name in record if not found
                 const employee = currentRegisteredEmployees.find(emp => emp.id === employeeId);
                 const employeeName = employee ? employee.name : (records[0] ? records[0].name : 'Karyawan Tidak Dikenal');
                 const attendanceCount = records.length;
 
                 const employeeCardDiv = document.createElement('div');
-                // Apply styling for each employee's attendance box (card-like appearance)
                 employeeCardDiv.classList.add('employee-attendance-card', 'bg-gray-50', 'rounded-xl', 'shadow-md', 'p-4', 'sm:p-6', 'border', 'border-gray-200');
 
                 employeeCardDiv.innerHTML = `
@@ -900,7 +1092,7 @@
                         <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-semibold rounded-full">${attendanceCount} Kehadiran</span>
                     </h4>
                     <div class="overflow-x-auto max-h-[300px] scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-gray-400">
-                        <table class="w-full text-left border-collapse min-w-[700px]"> <!-- Increased min-width for new columns -->
+                        <table class="w-full text-left border-collapse min-w-[700px]"> 
                             <thead>
                                 <tr class="border-b border-gray-300 text-gray-700 select-none bg-gray-100">
                                     <th class="py-3 px-4">Tanggal &amp; Waktu</th>
@@ -909,12 +1101,11 @@
                                     <th class="py-3 px-4">Alamat</th>
                                     <th class="py-3 px-4">Keterangan</th>
                                     <th class="py-3 px-4">Status Waktu</th>
-                                    <th class="py-3 px-4">Keterangan Denda</th> <!-- New column -->
-                                    <th class="py-3 px-4">Jumlah Denda</th> <!-- New column -->
+                                    <th class="py-3 px-4">Keterangan Denda</th> 
+                                    <th class="py-3 px-4">Jumlah Denda</th> 
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200" id="attendanceTableBody-${escapeHtml(employeeId)}">
-                                <!-- Attendance rows for this employee will be appended here -->
                             </tbody>
                         </table>
                     </div>
@@ -922,24 +1113,18 @@
                 `;
                 attendanceListContainer.appendChild(employeeCardDiv);
 
-                // Get the tbody for the current employee's table
                 const currentEmployeeTableBody = document.getElementById(`attendanceTableBody-${escapeHtml(employeeId)}`);
 
-                // Sort records for the current employee by timestamp in descending order (newest first)
                 records.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-                // Populate the table body with attendance records for this employee
                 for (const r of records) {
-                    // Determine status text and class
                     let statusText = r.keterangan;
                     let statusClass = r.keterangan === 'Di luar lokasi' ? 'text-red-700 urgent-alert' : 'text-green-700';
 
-                    // Handle late status for UI
                     let lateStatusText = r.isLate ? `Telat ${r.lateMinutes} menit` : 'Tepat Waktu';
                     let lateStatusClass = r.isLate ? 'text-red-600 font-semibold' : 'text-green-600';
                     let lateIconSvg = r.isLate ? `<svg class="inline-block w-4 h-4 mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>` : '';
 
-                    // Penalty related display
                     let penaltyKeterangan = r.isLate ? `Terlambat ${r.lateMinutes} menit` : '-';
                     let penaltyAmount = r.isLate && r.penaltyAmount ? `Rp. ${r.penaltyAmount.toLocaleString('id-ID')}` : '-';
                     let penaltyClass = r.isLate ? 'text-red-600 font-bold' : 'text-gray-500';
@@ -996,7 +1181,6 @@
                     employeesTableBody.appendChild(tr);
                 }
 
-                // Add event listeners to newly created delete buttons
                 document.querySelectorAll('.delete-employee-btn').forEach(button => {
                     button.addEventListener('click', (e) => {
                         employeeIdToDelete = e.target.dataset.employeeId;
@@ -1007,7 +1191,6 @@
                     });
                 });
 
-                // Add event listeners to newly created QR buttons
                 document.querySelectorAll('.generate-qr-btn').forEach(button => {
                     button.addEventListener('click', (e) => {
                         const employeeId = e.target.dataset.employeeId;
@@ -1017,9 +1200,8 @@
             }
         }
 
-        // Function to display QR code in a modal
         function displayQrCode(employeeId) {
-            qrcodeDiv.innerHTML = ''; // Clear previous QR code
+            qrcodeDiv.innerHTML = ''; 
             qrEmployeeIdDisplay.textContent = employeeId;
 
             new QRCode(qrcodeDiv, {
@@ -1031,15 +1213,12 @@
                 correctLevel : QRCode.CorrectLevel.H
             });
 
-            qrCodeModal.classList.remove('hidden'); // Show modal backdrop
-            // Apply animation classes
+            qrCodeModal.classList.remove('hidden'); 
             qrCodeModalContent.classList.remove('opacity-0', 'scale-95');
             qrCodeModalContent.classList.add('opacity-100', 'scale-100');
-            qrCodeModal.focus(); // Focus the modal for accessibility
+            qrCodeModal.focus(); 
         }
 
-
-        // Escape HTML for security (prevent XSS)
         function escapeHtml(text) {
             return text.replace(/[&<>"']/g, function(m) {
                 return {
@@ -1052,32 +1231,28 @@
             });
         }
 
-        // Helper function to check if two dates are the same day
         function isSameDay(d1, d2) {
             return d1.getFullYear() === d2.getFullYear() &&
                     d1.getMonth() === d2.getMonth() &&
                     d1.getDate() === d2.getDate();
         }
 
-        // Helper function to format date
         function formatDate(date) {
             const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
             return new Intl.DateTimeFormat('id-ID', options).format(date);
         }
 
-        // Helper function to format time (e.g., 07:45)
         function formatTime(date) {
             const options = { hour: '2-digit', minute: '2-digit' };
             return new Intl.DateTimeFormat('id-ID', options).format(date);
         }
 
-        // Helper function to format currency
         function formatCurrency(amount) {
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
         }
 
         function getDistanceFromLatLonInMeters(lat1, lon1, lat2, lon2) {
-            const R = 6371000; // Radius of the earth in meters
+            const R = 6371000; 
             const dLat = deg2rad(lat2 - lat1);
             const dLon = deg2rad(lon2 - lon1);
             const a =
@@ -1085,7 +1260,7 @@
                 Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
                 Math.sin(dLon / 2) * Math.sin(dLon / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const d = R * c; // Distance in meters
+            const d = R * c; 
             return d;
         }
         function deg2rad(deg) {
@@ -1104,11 +1279,10 @@
                 </div>
             `;
 
-            // Check for duplicate attendance for the current employee on the current day
             const today = new Date();
             const existingAttendanceToday = currentAttendanceRecordsWithIds.find(record =>
-                record.id === employeeId && // Crucially check by employee ID
-                record.timestamp && // Ensure timestamp exists
+                record.id === employeeId && 
+                record.timestamp && 
                 isSameDay(new Date(record.timestamp), today)
             );
 
@@ -1119,7 +1293,6 @@
                         Anda sudah absen hari ini pada pukul ${recordedTime}.
                     </div>
                 `;
-                // Clear manual input only if it was used for this attempt
                 employeeNameInput.value = '';
                 detectBtn.disabled = true;
                 return;
@@ -1138,28 +1311,26 @@
                 async function(position) {
                     const { latitude, longitude } = position.coords;
                     try {
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
-                        const data = await response.json();
-                        const address = data.display_name || "Alamat tidak ditemukan";
+                        // Use GoMaps.pro for reverse geocoding for employee attendance
+                        const addressResult = await reverseGeocodeGoMaps(latitude, longitude);
+                        const address = addressResult || "Alamat tidak ditemukan";
                         const now = new Date();
 
-                        const distance = getDistanceFromLatLonInMeters(latitude, longitude, OFFICE_LAT, OFFICE_LON);
-                        const inLocation = distance <= ACCEPT_RADIUS_METERS;
+                        const distance = getDistanceFromLatLonInMeters(latitude, longitude, officeLocation.latitude, officeLocation.longitude);
+                        const inLocation = distance <= officeLocation.acceptRadius;
 
                         const keterangan = inLocation ? 'Di lokasi' : 'Di luar lokasi';
 
-                        // Lateness calculation using global settings
                         let isLate = false;
-                        let lateMinutes = 0; // In minutes
-                        let penaltyAmount = 0; // In Rupiah
+                        let lateMinutes = 0; 
+                        let penaltyAmount = 0; 
 
-                        // Create a cutoff date for today at LATE_CUTOFF_HOUR:LATE_CUTOFF_MINUTE
                         const cutoffDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), lateCutoffHour, lateCutoffMinute, 0, 0);
 
                         if (now.getTime() > cutoffDate.getTime()) {
                             isLate = true;
                             const diffMs = now.getTime() - cutoffDate.getTime();
-                            lateMinutes = Math.ceil(diffMs / (1000 * 60)); // Round up to nearest minute
+                            lateMinutes = Math.ceil(diffMs / (1000 * 60)); 
                             penaltyAmount = lateMinutes * latePenaltyPerMinute;
                         }
 
@@ -1177,7 +1348,7 @@
                                 </svg>
                             `;
                         } else {
-                            statusBadgeClass = 'urgent-alert'; // Uses animation
+                            statusBadgeClass = 'urgent-alert'; 
                             statusTextClass = 'text-red-700';
                             statusIcon = `
                                 <svg class="w-10 h-10 mb-3" fill="none" stroke="#b91c1c" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1214,27 +1385,26 @@
                                     <div class="text-gray-700 text-sm">Longitude: <span class="font-mono">${longitude.toFixed(6)}</span></div>
                                     <div class="text-gray-700 text-sm mt-2">Alamat: <span class="font-mono">${escapeHtml(address)}</span></div>
                                     <div class="${statusTextClass} font-bold mt-3 select-none">${keterangan}</div>
-                                    ${lateBadge} <!-- Add late badge if applicable -->
-                                    ${penaltyInfo} <!-- Add penalty info if applicable -->
+                                    ${lateBadge} 
+                                    ${penaltyInfo} 
                                 </div>
                             `;
                         locationCard.innerHTML = locationCardContent;
 
                         const record = {
                             name: employeeName,
-                            id: employeeId, // Include employee ID in attendance record
+                            id: employeeId, 
                             datetime: formatDate(now),
                             latitude: latitude.toFixed(6),
                             longitude: longitude.toFixed(6),
                             address: address,
                             keterangan: keterangan,
-                            isLate: isLate, // Add isLate status
-                            lateMinutes: lateMinutes, // Add minutes late
-                            penaltyAmount: penaltyAmount // Add penalty amount
+                            isLate: isLate, 
+                            lateMinutes: lateMinutes, 
+                            penaltyAmount: penaltyAmount 
                         };
                         saveAttendanceRecord(record);
 
-                        // Clear manual input only if it was used
                         employeeNameInput.value = '';
                         detectBtn.disabled = true;
 
@@ -1264,27 +1434,22 @@
 
         // --- UI Logic and Event Listeners ---
 
-        // Employee Name Input for Absen section
         employeeNameInput.addEventListener('input', () => {
             detectBtn.disabled = employeeNameInput.value.trim().length === 0;
         });
 
-        // Admin Login/Logout workflow
         adminLoginBtn.addEventListener('click', () => {
             loginErrorMsg.classList.add('hidden');
             adminLoginForm.reset();
-            adminLoginModal.classList.remove('hidden'); // Show modal backdrop
-            // Apply animation classes
+            adminLoginModal.classList.remove('hidden'); 
             loginModalContent.classList.remove('opacity-0', 'scale-95');
             loginModalContent.classList.add('opacity-100', 'scale-100');
-            adminEmailInput.focus(); // Focus on email input
+            adminEmailInput.focus(); 
         });
 
         document.getElementById('closeLoginModalBtn').addEventListener('click', () => {
-            // Hide modal content with animation first
             loginModalContent.classList.remove('opacity-100', 'scale-100');
             loginModalContent.classList.add('opacity-0', 'scale-95');
-            // Hide modal backdrop after animation
             loginModalContent.addEventListener('transitionend', function handler() {
                 adminLoginModal.classList.add('hidden');
                 loginModalContent.removeEventListener('transitionend', handler);
@@ -1292,7 +1457,7 @@
         });
         window.addEventListener('keydown', e => {
             if (e.key === 'Escape' && !adminLoginModal.classList.contains('hidden')) {
-                document.getElementById('closeLoginModalBtn').click(); // Simulate click on close button
+                document.getElementById('closeLoginModalBtn').click(); 
             }
         });
 
@@ -1301,20 +1466,17 @@
             const email = adminEmailInput.value.trim();
             const password = adminPasswordInput.value;
 
-            loginErrorMsg.classList.add('hidden'); // Hide previous errors
+            loginErrorMsg.classList.add('hidden'); 
             
             try {
-                // Sign in with email and password using Firebase Auth
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
                 console.log("Admin berhasil login:", user.email);
-                isAdminLoggedIn = true; // Set admin status to true
+                isAdminLoggedIn = true; 
 
-                // Sembunyikan modal dengan animasi
                 loginModalContent.classList.remove('opacity-100', 'scale-100');
                 loginModalContent.classList.add('opacity-0', 'scale-95');
 
-                // Setelah animasi selesai, sembunyikan backdrop dan update UI
                 loginModalContent.addEventListener('transitionend', function handler() {
                     adminLoginModal.classList.add('hidden');
                     loginModalContent.removeEventListener('transitionend', handler);
@@ -1338,52 +1500,89 @@
 
         adminLogoutBtn.addEventListener('click', async () => {
             try {
-                await signOut(auth); // Sign out from Firebase
+                await signOut(auth); 
                 isAdminLoggedIn = false;
                 updateUIForAdmin();
             } catch (error) {
                 console.error("Error logging out:", error);
-                // Optionally display an error message if logout fails
             }
         });
 
         function updateUIForAdmin() {
             if (isAdminLoggedIn) {
-                // Populate settings inputs
                 lateCutoffTimeInput.value = `${String(lateCutoffHour).padStart(2, '0')}:${String(lateCutoffMinute).padStart(2, '0')}`;
                 latePenaltyAmountInput.value = latePenaltyPerMinute;
-                settingsSaveMsg.classList.add('hidden'); // Hide any previous save message
+                settingsSaveMsg.classList.add('hidden'); 
 
-                // Hide regular user sections
+                officeLatInput.value = officeLocation.latitude;
+                officeLonInput.value = officeLocation.longitude;
+                acceptRadiusInput.value = officeLocation.acceptRadius;
+                officeAddressInput.value = officeLocation.address; // NEW: Populate address input
+                locationSaveMsg.classList.add('hidden');
+
+                // Initialize/update the map using GoMaps.pro
+                if (window.google && window.google.maps) { 
+                    if (!map) {
+                        map = new google.maps.Map(officeMapDiv, { 
+                            center: { lat: officeLocation.latitude, lng: officeLocation.longitude },
+                            zoom: 15,
+                            mapTypeId: 'roadmap',
+                            streetViewControl: false 
+                        });
+
+                        officeMarker = new google.maps.Marker({ 
+                            position: { lat: officeLocation.latitude, lng: officeLocation.longitude },
+                            map: map,
+                            draggable: true, 
+                            title: "Lokasi Kantor"
+                        });
+
+                        // Update input fields when marker is dragged
+                        officeMarker.addListener('dragend', async () => { 
+                            const newPosition = officeMarker.getPosition();
+                            officeLatInput.value = newPosition.lat().toFixed(7);
+                            officeLonInput.value = newPosition.lng().toFixed(7);
+                            // NEW: Reverse geocode to get address from new coordinates using GoMaps.pro
+                            await reverseGeocodeGoMaps(newPosition.lat(), newPosition.lng());
+                        });
+                        
+                        // PlacesService tidak lagi diinisialisasi di sini karena kita fetch manual
+                        // autocompleteService dan placesService juga tidak diinisialisasi di sini
+                    } else {
+                        // If map already exists, just update its center and marker position
+                        const newLatLng = new google.maps.LatLng(officeLocation.latitude, officeLocation.longitude); 
+                        officeMarker.setPosition(newLatLng);
+                        map.setCenter(newLatLng);
+                        map.setZoom(15);
+                    }
+                } else {
+                    console.warn("GoMaps.pro API not yet loaded. Map will initialize when API is ready.");
+                }
+
                 heroSection.classList.add('hidden');
                 fiturSection.classList.add('hidden');
                 absenSection.classList.add('hidden');
                 adminLoginBtn.classList.add('hidden');
 
-                // Show admin dashboard and logout button
                 adminDashboard.classList.remove('hidden');
                 adminLogoutBtn.classList.remove('hidden');
 
-                // Clear user section inputs/messages
                 locationCard.innerHTML = '';
                 employeeNameInput.value = '';
                 detectBtn.disabled = true;
 
-                renderAttendanceTable(); // Re-render table with Firestore data
-                renderEmployeesTable(); // Re-render employees table
+                renderAttendanceTable(); 
+                renderEmployeesTable(); 
             } else {
-                // Hide admin dashboard and logout button
                 adminDashboard.classList.add('hidden');
                 adminLogoutBtn.classList.add('hidden');
 
-                // Show regular user sections
                 heroSection.classList.remove('hidden');
                 fiturSection.classList.remove('hidden');
                 absenSection.classList.remove('hidden');
                 adminLoginBtn.classList.remove('hidden');
 
-                // Clear admin section inputs/messages
-                locationCard.innerHTML = ''; // This is used by user section too, but cleared here to ensure consistency.
+                locationCard.innerHTML = ''; 
             }
         }
 
@@ -1392,7 +1591,6 @@
             document.getElementById('absen').scrollIntoView({ behavior: 'smooth' });
         });
 
-        // Employee Attendance (Detect Location) Logic for manual name input
         detectBtn.addEventListener('click', () => {
             const employeeName = employeeNameInput.value.trim();
             if (employeeName.length === 0) {
@@ -1403,7 +1601,6 @@
                 `;
                 return;
             }
-            // Find employee ID by name
             const registeredEmployee = currentRegisteredEmployees.find(emp => emp.name.toLowerCase() === employeeName.toLowerCase());
             if (!registeredEmployee) {
                 locationCard.innerHTML = `
@@ -1418,7 +1615,6 @@
             recordAttendance(registeredEmployee.name, registeredEmployee.id);
         });
 
-        // Reset History functionality
         resetHistoryBtn.addEventListener('click', () => {
             resetPinInput.value = '';
             resetErrorMsg.classList.add('hidden');
@@ -1468,10 +1664,9 @@
             }
         });
 
-        // New: Add Employee Functionality
         addEmployeeBtn.addEventListener('click', () => {
             newEmployeeName.value = '';
-            newEmployeeIdDisplay.value = crypto.randomUUID(); // Generate random ID
+            newEmployeeIdDisplay.value = crypto.randomUUID(); 
             addEmployeeErrorMsg.classList.add('hidden');
             addEmployeeModal.classList.remove('hidden');
             addEmployeeModalContent.classList.remove('opacity-0', 'scale-95');
@@ -1499,7 +1694,6 @@
                 return;
             }
 
-            // Check if employee name already exists (case-insensitive)
             const nameExists = currentRegisteredEmployees.some(emp => emp.name.toLowerCase() === name.toLowerCase());
             if (nameExists) {
                 addEmployeeErrorMsg.textContent = 'Nama karyawan ini sudah terdaftar.';
@@ -1507,7 +1701,7 @@
                 return;
             }
 
-            addEmployeeConfirmBtn.disabled = true; // Disable button during submission
+            addEmployeeConfirmBtn.disabled = true; 
             addEmployeeErrorMsg.classList.add('hidden');
 
             const success = await addEmployeeToFirestore(name, id);
@@ -1517,19 +1711,17 @@
                 addEmployeeModalContent.addEventListener('transitionend', function handler() {
                     addEmployeeModal.classList.add('hidden');
                     addEmployeeModalContent.removeEventListener('transitionend', handler);
-                    // Optionally show a temporary success message in the main dashboard
                     locationCard.innerHTML = `
                         <div class="bg-green-50 border border-green-200 text-green-700 rounded-lg p-4 mt-4 select-none">
                             Karyawan "${escapeHtml(name)}" berhasil ditambahkan!
                         </div>
                     `;
-                    setTimeout(() => locationCard.innerHTML = '', 3000); // Clear message after 3 seconds
+                    setTimeout(() => locationCard.innerHTML = '', 3000); 
                 }, {once: true});
             }
-            addEmployeeConfirmBtn.disabled = false; // Re-enable button
+            addEmployeeConfirmBtn.disabled = false; 
         });
 
-        // New: Delete Employee Functionality
         cancelDeleteEmployeeBtn.addEventListener('click', () => {
             deleteEmployeeConfirmModal.classList.add('hidden');
             employeeIdToDelete = null;
@@ -1538,13 +1730,12 @@
         confirmDeleteEmployeeBtn.addEventListener('click', async () => {
             if (!employeeIdToDelete) return;
 
-            confirmDeleteEmployeeBtn.disabled = true; // Disable button during deletion
+            confirmDeleteEmployeeBtn.disabled = true; 
             deleteEmployeeErrorMsg.classList.add('hidden');
 
             const success = await deleteEmployeeFromFirestore(employeeIdToDelete);
             if (success) {
                 deleteEmployeeConfirmModal.classList.add('hidden');
-                // Optionally show success message
                 locationCard.innerHTML = `
                     <div class="bg-green-50 border border-green-200 text-green-700 rounded-lg p-4 mt-4 select-none">
                         Karyawan berhasil dihapus!
@@ -1553,10 +1744,9 @@
                 setTimeout(() => locationCard.innerHTML = '', 3000);
             }
             confirmDeleteEmployeeBtn.disabled = false;
-            employeeIdToDelete = null; // Clear the stored ID
+            employeeIdToDelete = null; 
         });
 
-        // Close QR modal (for admin to display QR)
         closeQrModalBtn.addEventListener('click', () => {
             qrCodeModalContent.classList.remove('opacity-100', 'scale-100');
             qrCodeModalContent.classList.add('opacity-0', 'scale-95');
@@ -1566,31 +1756,25 @@
             }, {once: true});
         });
 
-        // --- QR Scanner Functionality for Attendance ---
-
-        // Event listener for the "Scan QR" button on the front page
         scanQrBtn.addEventListener('click', () => {
             qrScanMessage.textContent = 'Pilih metode pemindaian QR Code.';
             qrScanError.classList.add('hidden');
-            qrVideo.classList.add('hidden'); // Hide video initially
-            qrScannerModal.classList.remove('hidden'); // Show modal backdrop
-            // Apply animation classes
+            qrVideo.classList.add('hidden'); 
+            qrScannerModal.classList.remove('hidden'); 
             qrScannerModalContent.classList.remove('opacity-0', 'scale-95');
             qrScannerModalContent.classList.add('opacity-100', 'scale-100');
-            qrScannerModal.focus(); // Focus the modal for accessibility
+            qrScannerModal.focus(); 
         });
 
-        // Event listener for "Pilih dari Galeri" button
         selectImageBtn.addEventListener('click', () => {
-            qrImageInput.click(); // Trigger the hidden file input
+            qrImageInput.click(); 
         });
 
-        // Event listener for when an image is selected from the gallery
         qrImageInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
-                stopQrScanner(); // Stop camera if it's running
-                qrVideo.classList.add('hidden'); // Ensure video is hidden
+                stopQrScanner(); 
+                qrVideo.classList.add('hidden'); 
                 qrScanMessage.textContent = 'Memindai gambar...';
                 qrScanError.classList.add('hidden');
 
@@ -1599,10 +1783,9 @@
                     const img = new Image();
                     img.onload = () => {
                         const ctx = qrCanvas.getContext('2d');
-                        // Set canvas dimensions to fit the image while maintaining aspect ratio
                         const aspectRatio = img.width / img.height;
-                        const maxWidth = 300; // Max width for canvas rendering
-                        const maxHeight = 300; // Max height for canvas rendering
+                        const maxWidth = 300; 
+                        const maxHeight = 300; 
 
                         let drawWidth = img.width;
                         let drawHeight = img.height;
@@ -1621,7 +1804,9 @@
 
                         ctx.drawImage(img, 0, 0, drawWidth, drawHeight);
                         const imageData = ctx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
-                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                            inversionAttempts: "dontInvert", 
+                        });
 
                         if (code) {
                             processScannedQr(code.data);
@@ -1640,49 +1825,42 @@
                 };
                 reader.readAsDataURL(file);
             }
-            qrImageInput.value = ''; // Clear the file input
+            qrImageInput.value = ''; 
         });
 
-        // Event listener for "Gunakan Kamera" button
         startCameraScanBtn.addEventListener('click', () => {
             startCameraScanner();
         });
 
-
-        // Event listener for closing the QR scanner modal
         closeQrScannerModalBtn.addEventListener('click', () => {
-            stopQrScanner(); // Stop the camera stream
+            stopQrScanner(); 
             qrScannerModalContent.classList.remove('opacity-100', 'scale-100');
             qrScannerModalContent.classList.add('opacity-0', 'scale-95');
             qrScannerModalContent.addEventListener('transitionend', function handler() {
                 qrScannerModal.classList.add('hidden');
                 qrScannerModalContent.removeEventListener('transitionend', handler);
-                qrVideo.classList.remove('hidden'); // Ensure video is visible if we start camera again later
+                qrVideo.classList.remove('hidden'); 
             }, {once: true});
         });
 
-        // Function to start the QR scanner from camera
         async function startCameraScanner() {
-            if (videoStream) stopQrScanner(); // Ensure any previous stream is stopped
+            if (videoStream) stopQrScanner(); 
 
             try {
                 qrScanMessage.textContent = 'Memulai kamera...';
                 qrScanError.classList.add('hidden');
-                qrVideo.classList.remove('hidden'); // Show video element
+                qrVideo.classList.remove('hidden'); 
 
-                // Request camera access, preferring the environment-facing camera
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 qrVideo.srcObject = stream;
-                videoStream = stream; // Store stream to stop it later
+                videoStream = stream; 
 
-                // Once video metadata is loaded, play the video and start scanning
                 qrVideo.onloadedmetadata = () => {
                     qrVideo.play();
-                    // Set canvas dimensions to match video stream
                     qrCanvas.width = qrVideo.videoWidth;
                     qrCanvas.height = qrVideo.videoHeight;
-                    scanQrCode(); // Start the scanning loop
-                    qrScanMessage.textContent = 'Arahkan kamera ke Kode QR.'; // Reset message
+                    scanQrCode(); 
+                    qrScanMessage.textContent = 'Arahkan kamera ke Kode QR.'; 
                 };
             } catch (err) {
                 console.error("Error accessing camera: ", err);
@@ -1696,80 +1874,65 @@
                 }
                 qrScanError.textContent = msg;
                 qrScanError.classList.remove('hidden');
-                qrScanMessage.textContent = ''; // Clear scanning message
-                qrVideo.classList.add('hidden'); // Hide video if camera access fails
+                qrScanMessage.textContent = ''; 
+                qrVideo.classList.add('hidden'); 
             }
         }
 
-        // Function to continuously scan for QR codes (from camera)
         function scanQrCode() {
             if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
                 const ctx = qrCanvas.getContext('2d', { willReadFrequently: true });
-                // Set canvas dimensions to match video stream if not already set (for mobile rotation etc.)
                 if (qrCanvas.width !== qrVideo.videoWidth || qrCanvas.height !== qrVideo.videoHeight) {
                     qrCanvas.width = qrVideo.videoWidth;
                     qrCanvas.height = qrVideo.videoHeight;
                 }
 
-                // Draw the video frame onto the canvas
                 ctx.drawImage(qrVideo, 0, 0, qrCanvas.width, qrCanvas.height);
-                // Get image data from the canvas
                 const imageData = ctx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
-                // Use jsQR to find QR codes
                 const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "dontInvert", // Optimize for various QR codes
+                    inversionAttempts: "dontInvert", 
                 });
 
                 if (code) {
-                    // QR code found! Stop the scanner and process the data
                     stopQrScanner();
                     processScannedQr(code.data);
-                    return; // Exit the function to prevent further scanning in this loop
+                    return; 
                 }
             }
-            // Continue scanning in the next animation frame
             animationFrameId = requestAnimationFrame(scanQrCode);
         }
 
-        // Function to stop the QR scanner camera stream and animation loop
         function stopQrScanner() {
             if (animationFrameId) {
                 cancelAnimationFrame(animationFrameId);
                 animationFrameId = null;
             }
             if (videoStream) {
-                // Stop all tracks (video, audio) in the stream
                 videoStream.getTracks().forEach(track => track.stop());
                 videoStream = null;
-                qrVideo.srcObject = null; // Disconnect the stream from the video element
+                qrVideo.srcObject = null; 
             }
         }
 
-        // Function to process the scanned QR code data
         function processScannedQr(scannedId) {
-            // Find the employee in the registered employees list using the scanned ID
             const registeredEmployee = currentRegisteredEmployees.find(emp => emp.id === scannedId);
 
             if (registeredEmployee) {
-                // Valid employee found! Record attendance
                 recordAttendance(registeredEmployee.name, registeredEmployee.id);
-                closeQrScannerModalBtn.click(); // Close the scanner modal after successful scan
+                closeQrScannerModalBtn.click(); 
             } else {
-                // Scanned ID does not match any registered employee
                 qrScanError.textContent = `Kode QR tidak valid atau karyawan tidak terdaftar: ${escapeHtml(scannedId)}`;
                 qrScanError.classList.remove('hidden');
-                qrScanMessage.textContent = 'Pilih gambar lain atau gunakan kamera.'; // Update message for next attempt
-                // Re-enable camera or prompt for gallery if it was a camera scan
-                if (videoStream) { // If it was a live camera scan
-                    startCameraScanner(); // Restart camera to allow rescanning
+                qrScanMessage.textContent = 'Pilih gambar lain atau gunakan kamera.'; 
+                if (videoStream) { 
+                    startCameraScanner(); 
                 }
             }
         }
 
-        // NEW: Event listener for saving attendance settings
         attendanceSettingsForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const timeValue = lateCutoffTimeInput.value; // e.g., "07:30"
+            const timeValue = lateCutoffTimeInput.value; 
             const [hour, minute] = timeValue.split(':').map(Number);
             const penalty = parseInt(latePenaltyAmountInput.value, 10);
 
@@ -1799,6 +1962,228 @@
             saveSettingsBtn.disabled = false;
         });
 
+        // NEW: Event listeners for Office Location Settings
+        useCurrentLocationBtn.addEventListener('click', () => {
+            locationSaveMsg.textContent = 'Mendeteksi lokasi saat ini...';
+            locationSaveMsg.classList.remove('hidden', 'text-red-600', 'text-green-600');
+            
+            if (!navigator.geolocation) {
+                locationSaveMsg.textContent = 'Browser Anda tidak mendukung deteksi lokasi.';
+                locationSaveMsg.classList.remove('hidden');
+                locationSaveMsg.classList.add('text-red-600');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async (position) => { 
+                    const { latitude, longitude } = position.coords;
+                    officeLatInput.value = latitude.toFixed(7);
+                    officeLonInput.value = longitude.toFixed(7);
+                    
+                    // Update map marker
+                    if (map && officeMarker) {
+                        const newLatLng = new google.maps.LatLng(latitude, longitude); 
+                        officeMarker.setPosition(newLatLng);
+                        map.setCenter(newLatLng);
+                        map.setZoom(15);
+                    }
+                    // NEW: Reverse geocode to get address from current location using GoMaps.pro
+                    await reverseGeocodeGoMaps(latitude, longitude);
+
+                    locationSaveMsg.textContent = 'Lokasi saat ini berhasil didapatkan.';
+                    locationSaveMsg.classList.remove('text-red-600', 'hidden');
+                    locationSaveMsg.classList.add('text-green-600');
+                    setTimeout(() => locationSaveMsg.classList.add('hidden'), 3000);
+                },
+                (error) => {
+                    console.error("Error getting current location:", error);
+                    let msg = 'Gagal mendapatkan lokasi saat ini.';
+                    if (error.code === 1) msg = 'Izin lokasi ditolak. Harap izinkan akses lokasi.';
+                    else if (error.code === 2) msg = 'Lokasi tidak tersedia.';
+                    else if (error.code === 3) msg = 'Waktu tunggu permintaan lokasi habis.';
+                    locationSaveMsg.textContent = msg;
+                    locationSaveMsg.classList.remove('hidden', 'text-green-600');
+                    locationSaveMsg.classList.add('text-red-600');
+                },
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            );
+        });
+
+        saveOfficeLocationBtn.addEventListener('click', async () => {
+            const address = officeAddressInput.value.trim(); 
+            const radius = parseInt(acceptRadiusInput.value, 10);
+
+            if (address.length === 0) { 
+                locationSaveMsg.textContent = 'Alamat kantor tidak boleh kosong.';
+                locationSaveMsg.classList.remove('hidden', 'text-green-600');
+                locationSaveMsg.classList.add('text-red-600');
+                return;
+            }
+
+            if (isNaN(radius) || radius < 10 || radius > 1000) {
+                locationSaveMsg.textContent = 'Input radius tidak valid. Masukkan angka antara 10 dan 1000.';
+                locationSaveMsg.classList.remove('hidden', 'text-green-600');
+                locationSaveMsg.classList.add('text-red-600');
+                return;
+            }
+
+            saveOfficeLocationBtn.disabled = true;
+            locationSaveMsg.textContent = 'Menyimpan lokasi kantor...';
+            locationSaveMsg.classList.remove('hidden', 'text-red-600', 'text-green-600');
+
+            let finalLat;
+            let finalLon;
+            let finalAddress;
+
+            try {
+                const geocodeResult = await geocodeAddressGoMaps(address);
+                if (geocodeResult && geocodeResult.lat && geocodeResult.lon) {
+                    finalLat = geocodeResult.lat;
+                    finalLon = geocodeResult.lon;
+                    finalAddress = geocodeResult.formattedAddress; 
+                    officeLatInput.value = finalLat.toFixed(7);
+                    officeLonInput.value = finalLon.toFixed(7);
+                    officeAddressInput.value = finalAddress; 
+                    
+                    if (map && officeMarker) {
+                        const newLatLng = new google.maps.LatLng(finalLat, finalLon); 
+                        officeMarker.setPosition(newLatLng);
+                        map.setCenter(newLatLng);
+                        map.setZoom(15);
+                    }
+
+                } else {
+                    locationSaveMsg.textContent = 'Gagal mengkonversi alamat ke koordinat. Pastikan alamat valid.';
+                    locationSaveMsg.classList.remove('hidden', 'text-green-600');
+                    locationSaveMsg.classList.add('text-red-600');
+                    saveOfficeLocationBtn.disabled = false;
+                    return;
+                }
+            } catch (e) {
+                console.error("Error during geocoding:", e);
+                locationSaveMsg.textContent = `Terjadi kesalahan saat mengkonversi alamat: ${e.message}`;
+                locationSaveMsg.classList.remove('hidden', 'text-green-600');
+                locationSaveMsg.classList.add('text-red-600');
+                saveOfficeLocationBtn.disabled = false;
+                return;
+            }
+
+            const success = await saveOfficeLocation(finalLat, finalLon, radius, finalAddress);
+            saveOfficeLocationBtn.disabled = false;
+        });
+
+        // NEW: Geocoding function (Address to Lat/Lon) using direct fetch to GoMaps.pro
+        async function geocodeAddressGoMaps(address) {
+            try {
+                const response = await fetch(`https://maps.gomaps.pro/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${MAPS_API_KEY}`);
+                const data = await response.json();
+                if (data.status === 'OK' && data.results && data.results.length > 0) {
+                    const location = data.results[0].geometry.location;
+                    const formattedAddress = data.results[0].formatted_address;
+                    return { lat: location.lat, lon: location.lng, formattedAddress: formattedAddress };
+                } else {
+                    console.error('GoMaps.pro Geocode was not successful: ' + data.status);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error fetching GoMaps.pro Geocode:', error);
+                return null;
+            }
+        }
+
+        // NEW: Reverse Geocoding function (Lat/Lon to Address) using direct fetch to GoMaps.pro
+        async function reverseGeocodeGoMaps(lat, lon) {
+            try {
+                const response = await fetch(`https://maps.gomaps.pro/maps/api/geocode/json?latlng=${lat},${lon}&key=${MAPS_API_KEY}`);
+                const data = await response.json();
+                if (data.status === 'OK' && data.results && data.results.length > 0) {
+                    return data.results[0].formatted_address;
+                } else {
+                    console.error('GoMaps.pro Reverse Geocode was not successful: ' + data.status);
+                    return "Alamat tidak ditemukan";
+                }
+            } catch (error) {
+                console.error('Error fetching GoMaps.pro Reverse Geocode:', error);
+                return "Alamat tidak ditemukan";
+            }
+        }
+
+        // NEW: Autocomplete logic for officeAddressInput
+        let autocompleteTimeout = null;
+        officeAddressInput.addEventListener('input', () => {
+            clearTimeout(autocompleteTimeout);
+            const query = officeAddressInput.value.trim();
+            if (query.length < 3) { // Mulai pencarian setelah minimal 3 karakter
+                officeAddressSuggestions.innerHTML = '';
+                officeAddressSuggestions.classList.add('hidden');
+                return;
+            }
+
+            autocompleteTimeout = setTimeout(async () => { // Make this async
+                try {
+                    const response = await fetch(`https://maps.gomaps.pro/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}&key=${MAPS_API_KEY}`);
+                    const data = await response.json();
+
+                    officeAddressSuggestions.innerHTML = '';
+                    if (data.predictions && data.predictions.length) {
+                        officeAddressSuggestions.classList.remove('hidden');
+                        data.predictions.forEach(prediction => {
+                            const button = document.createElement('button');
+                            button.textContent = prediction.description;
+                            button.classList.add('px-4', 'py-3', 'text-left', 'w-full', 'hover:bg-gray-50', 'transition', 'border-b', 'border-gray-100');
+                            button.onclick = async () => { // Make this async
+                                officeAddressInput.value = prediction.description; // Isi input dengan deskripsi lengkap
+                                officeAddressSuggestions.classList.add('hidden'); // Sembunyikan saran
+                                
+                                try {
+                                    const detailsResponse = await fetch(`https://maps.gomaps.pro/maps/api/place/details/json?place_id=${prediction.place_id}&key=${MAPS_API_KEY}`);
+                                    const placeData = await detailsResponse.json();
+
+                                    if (placeData.status === 'OK' && placeData.result && placeData.result.geometry) {
+                                        const location = placeData.result.geometry.location;
+                                        officeLatInput.value = location.lat.toFixed(7);
+                                        officeLonInput.value = location.lng.toFixed(7);
+                                        officeAddressInput.value = placeData.result.formatted_address || prediction.description; // Gunakan alamat terformat jika ada
+                                        
+                                        // Update map marker
+                                        if (map && officeMarker) {
+                                            const newLatLng = new google.maps.LatLng(location.lat, location.lng);
+                                            officeMarker.setPosition(newLatLng);
+                                            map.setCenter(newLatLng);
+                                            map.setZoom(15);
+                                        }
+                                    } else {
+                                        console.error('GoMaps.pro Places Details request failed due to ' + placeData.status);
+                                        locationSaveMsg.textContent = `Gagal mendapatkan detail tempat: ${placeData.status}`;
+                                        locationSaveMsg.classList.remove('hidden', 'text-green-600');
+                                        locationSaveMsg.classList.add('text-red-600');
+                                    }
+                                } catch (error) {
+                                    console.error('Error fetching GoMaps.pro Place Details:', error);
+                                    locationSaveMsg.textContent = `Terjadi kesalahan saat mendapatkan detail tempat: ${error.message}`;
+                                    locationSaveMsg.classList.remove('hidden', 'text-green-600');
+                                    locationSaveMsg.classList.add('text-red-600');
+                                }
+                            };
+                            officeAddressSuggestions.appendChild(button);
+                        });
+                    } else {
+                        officeAddressSuggestions.classList.add('hidden');
+                    }
+                } catch (error) {
+                    console.error('Error fetching GoMaps.pro Autocomplete:', error);
+                    officeAddressSuggestions.classList.add('hidden');
+                }
+            }, 300); // Debounce 300ms
+        });
+
+        // Sembunyikan saran ketika klik di luar input atau saran
+        document.addEventListener('click', (event) => {
+            if (!officeAddressInput.contains(event.target) && !officeAddressSuggestions.contains(event.target)) {
+                officeAddressSuggestions.classList.add('hidden');
+            }
+        });
+
 
         window.addEventListener('keydown', e => {
             if (e.key === 'Escape') {
@@ -1812,13 +2197,13 @@
                     cancelDeleteEmployeeBtn.click();
                 } else if (!qrCodeModal.classList.contains('hidden')) {
                     closeQrModalBtn.click();
-                } else if (!qrScannerModal.classList.contains('hidden')) { // Handle QR scanner modal
+                } else if (!qrScannerModal.classList.contains('hidden')) { 
                     closeQrScannerModalBtn.click();
                 }
+                officeAddressSuggestions.classList.add('hidden'); // Sembunyikan saran autocomplete saat Esc
             }
         });
 
-        // Initial UI update will happen after Firebase authentication
         updateUIForAdmin();
 
     })();
