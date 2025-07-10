@@ -206,7 +206,7 @@
 
         /* Styling for autocomplete suggestions */
         /* Pastikan posisi relatif pada parent grid div */
-        .relative > .md\\:col-span-2 > #officeAddressSuggestions {
+        .relative > .md\:col-span-2 > #officeAddressSuggestions {
             position: absolute; 
             z-index: 20; 
             background-color: white;
@@ -238,15 +238,47 @@
         #officeAddressSuggestions button:last-child {
             border-bottom: none;
         }
+
+        /* New: Styles for attendance GIF overlay */
+        #attendanceGifOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9); /* Darker background for focus */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999; /* Ensure it's on top of everything */
+            opacity: 0; /* Start hidden */
+            transition: opacity 0.3s ease-in-out; /* Smooth fade-in/out */
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        #attendanceGifOverlay.show {
+            opacity: 1;
+        }
+
+        #attendanceGifOverlay img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Cover the entire screen */
+            border-radius: 0; /* No rounded corners for full screen */
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
 
-    <!-- Custom Loading Overlay -->
+    <!-- Custom Loading Overlay (Opening GIF) -->
     <div id="customLoadingOverlay" class="loader-overlay">
-        <!-- Replaced SVG with GIF -->
-        <img src="https://i.pinimg.com/originals/a7/f5/24/a7f524e456422927052e6d3b339f3128.gif" alt="Loading Animation" class="loader-gif">
-        <!-- Removed the "Memuat Aplikasi..." text -->
+        <!-- Updated GIF source and removed text -->
+        <img src="https://mir-s3-cdn-cf.behance.net/project_modules/fs/c8ef63205498199.66bc103bea94e.gif" alt="Loading Animation" class="loader-gif">
+    </div>
+
+    <!-- NEW: Attendance GIF Overlay -->
+    <div id="attendanceGifOverlay" class="hidden">
+        <img src="https://mir-s3-cdn-cf.behance.net/project_modules/max_632/77954d193040073.65e5af3aef46b.gif" alt="Attendance Animation">
     </div>
 
     <!-- Main Content Wrapper -->
@@ -577,7 +609,8 @@
     let latePenaltyPerMinute = 1000; // Rp. 1,000 per minute late
 
     // NEW: Variables for loading screen
-    const MINIMUM_LOADING_TIME_MS = 7000; // 7 seconds (Updated from 5000ms)
+    const MINIMUM_LOADING_TIME_MS = 5062; // Updated: 5 seconds and 62 milliseconds
+    const ATTENDANCE_GIF_DURATION_MS = 4080; // Updated: 4.08 seconds
     let minimumLoadingTimeElapsed = false;
     let pageContentLoaded = false;
 
@@ -692,10 +725,10 @@
         const saveOfficeLocationBtn = document.getElementById('saveOfficeLocationBtn');
         const locationSaveMsg = document.getElementById('locationSaveMsg');
 
-
         // NEW: Custom Loading Screen Elements
         const customLoadingOverlay = document.getElementById('customLoadingOverlay');
         const contentWrapper = document.getElementById('contentWrapper');
+        const attendanceGifOverlay = document.getElementById('attendanceGifOverlay'); // New: Attendance GIF overlay
 
         // --- Firebase Initialization and Authentication ---
         const firebaseConfig = {
@@ -1269,167 +1302,197 @@
 
         // --- Core Attendance Recording Logic ---
         async function recordAttendance(employeeName, employeeId) {
-            locationCard.innerHTML = `
-                <div class="flex items-center justify-center space-x-2 mt-2">
-                    <svg class="w-5 h-5 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                    </svg>
-                    <span class="text-blue-600 font-medium">Mendeteksi lokasi...</span>
-                </div>
-            `;
+            // Show the attendance GIF overlay
+            attendanceGifOverlay.classList.remove('hidden');
+            attendanceGifOverlay.classList.add('show');
+            document.body.style.overflow = 'hidden'; // Prevent scrolling during GIF
 
-            const today = new Date();
-            const existingAttendanceToday = currentAttendanceRecordsWithIds.find(record =>
-                record.id === employeeId && 
-                record.timestamp && 
-                isSameDay(new Date(record.timestamp), today)
-            );
+            // Hide main content temporarily
+            contentWrapper.classList.remove('visible');
+            // Do not add 'hidden' yet, let opacity transition handle it.
+            contentWrapper.style.opacity = '0'; // Start fading out content
 
-            if (existingAttendanceToday) {
-                const recordedTime = formatTime(new Date(existingAttendanceToday.timestamp));
+            // Add a transition end listener for the GIF overlay to ensure smooth transition back
+            const handleGifTransitionEnd = async () => {
+                attendanceGifOverlay.removeEventListener('transitionend', handleGifTransitionEnd); // Remove listener after first use
+                attendanceGifOverlay.classList.add('hidden'); // Fully hide the GIF overlay
+                document.body.style.overflow = 'auto'; // Re-enable scrolling
+
+                // Restore main content visibility with fade-in
+                contentWrapper.classList.add('visible');
+                contentWrapper.style.opacity = '1'; // Fade in content
+
+                // Scroll to the top of the page (hero section)
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
                 locationCard.innerHTML = `
-                    <div class="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-4 mt-4 select-none">
-                        Anda sudah absen hari ini pada pukul ${recordedTime}.
+                    <div class="flex items-center justify-center space-x-2 mt-2">
+                        <svg class="w-5 h-5 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                        </svg>
+                        <span class="text-blue-600 font-medium">Mendeteksi lokasi...</span>
                     </div>
                 `;
-                employeeNameInput.value = '';
-                detectBtn.disabled = true;
-                return;
-            }
 
-            if (!navigator.geolocation) {
-                locationCard.innerHTML = `
-                    <div class="bg-red-50 border border-red-200 text-red-600 rounded-lg p-4 mt-4 select-none">
-                        Browser Anda tidak mendukung deteksi lokasi.
-                    </div>
-                `;
-                return;
-            }
+                const today = new Date();
+                const existingAttendanceToday = currentAttendanceRecordsWithIds.find(record =>
+                    record.id === employeeId && 
+                    record.timestamp && 
+                    isSameDay(new Date(record.timestamp), today)
+                );
 
-            navigator.geolocation.getCurrentPosition(
-                async function(position) {
-                    const { latitude, longitude } = position.coords;
-                    try {
-                        // Use GoMaps.pro for reverse geocoding for employee attendance
-                        const addressResult = await reverseGeocodeGoMaps(latitude, longitude);
-                        const address = addressResult || "Alamat tidak ditemukan";
-                        const now = new Date();
-
-                        const distance = getDistanceFromLatLonInMeters(latitude, longitude, officeLocation.latitude, officeLocation.longitude);
-                        const inLocation = distance <= officeLocation.acceptRadius;
-
-                        const keterangan = inLocation ? 'Di lokasi' : 'Di luar lokasi';
-
-                        let isLate = false;
-                        let lateMinutes = 0; 
-                        let penaltyAmount = 0; 
-
-                        const cutoffDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), lateCutoffHour, lateCutoffMinute, 0, 0);
-
-                        if (now.getTime() > cutoffDate.getTime()) {
-                            isLate = true;
-                            const diffMs = now.getTime() - cutoffDate.getTime();
-                            lateMinutes = Math.ceil(diffMs / (1000 * 60)); 
-                            penaltyAmount = lateMinutes * latePenaltyPerMinute;
-                        }
-
-                        let locationCardContent = '';
-                        let statusBadgeClass = '';
-                        let statusTextClass = '';
-                        let statusIcon = '';
-
-                        if (inLocation) {
-                            statusBadgeClass = 'bg-green-50 border-green-200';
-                            statusTextClass = 'text-green-700';
-                            statusIcon = `
-                                <svg class="w-8 h-8 text-green-500 mb-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                    <path d="M5 13l4 4L19 7" />
-                                </svg>
-                            `;
-                        } else {
-                            statusBadgeClass = 'urgent-alert'; 
-                            statusTextClass = 'text-red-700';
-                            statusIcon = `
-                                <svg class="w-10 h-10 mb-3" fill="none" stroke="#b91c1c" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                    <path d="M12 9v2m0 4h.01M10.29 6.16a8 8 0 1113.42 10.69m-5.67-10.57L3 21" />
-                                </svg>
-                            `;
-                        }
-
-                        let lateBadge = '';
-                        let penaltyInfo = '';
-
-                        if (isLate) {
-                            lateBadge = `
-                                <div class="mt-3 text-red-600 font-bold flex items-center justify-center">
-                                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                    TERLAMBAT: ${lateMinutes} menit
-                                </div>
-                            `;
-                            penaltyInfo = `
-                                <div class="text-red-700 font-bold mt-2">
-                                    Denda Keterlambatan: ${formatCurrency(penaltyAmount)}
-                                </div>
-                            `;
-                        }
-
-
-                        locationCardContent = `
-                                <div class="${statusBadgeClass} border rounded-xl p-5 mt-4 flex flex-col items-center select-text">
-                                    ${statusIcon}
-                                    <div class="${statusTextClass} font-semibold mb-1">${inLocation ? 'Absensi berhasil dicatat!' : 'PERINGATAN DARURAT: Karyawan tidak di lokasi kantor!'}</div>
-                                    <div class="text-gray-700 text-sm">Nama: <span class="font-semibold">${escapeHtml(employeeName)}</span></div>
-                                    <div class="text-gray-700 text-sm">Waktu: <span class="font-mono">${formatDate(now)}</span></div>
-                                    <div class="text-gray-700 text-sm">Latitude: <span class="font-mono">${latitude.toFixed(6)}</span></div>
-                                    <div class="text-gray-700 text-sm">Longitude: <span class="font-mono">${longitude.toFixed(6)}</span></div>
-                                    <div class="text-gray-700 text-sm mt-2">Alamat: <span class="font-mono">${escapeHtml(address)}</span></div>
-                                    <div class="${statusTextClass} font-bold mt-3 select-none">${keterangan}</div>
-                                    ${lateBadge} 
-                                    ${penaltyInfo} 
-                                </div>
-                            `;
-                        locationCard.innerHTML = locationCardContent;
-
-                        const record = {
-                            name: employeeName,
-                            id: employeeId, 
-                            datetime: formatDate(now),
-                            latitude: latitude.toFixed(6),
-                            longitude: longitude.toFixed(6),
-                            address: address,
-                            keterangan: keterangan,
-                            isLate: isLate, 
-                            lateMinutes: lateMinutes, 
-                            penaltyAmount: penaltyAmount 
-                        };
-                        saveAttendanceRecord(record);
-
-                        employeeNameInput.value = '';
-                        detectBtn.disabled = true;
-
-                    } catch (error) {
-                        console.error("Error fetching address or processing location:", error);
-                        locationCard.innerHTML = `
-                            <div class="bg-red-50 border border-red-200 text-red-600 rounded-lg p-4 mt-4 select-none">
-                                Gagal mendapatkan alamat atau mencatat absensi: ${error.message}
-                            </div>
-                        `;
-                    }
-                },
-                function(error) {
-                    let message = "Gagal mendeteksi lokasi.";
-                    if (error.code === 1) message = "Izin lokasi ditolak. Silakan izinkan akses lokasi pada browser Anda.";
-                    else if (error.code === 2) message = "Lokasi tidak tersedia.";
-                    else if (error.code === 3) message = "Permintaan lokasi melebihi waktu tunggu.";
+                if (existingAttendanceToday) {
+                    const recordedTime = formatTime(new Date(existingAttendanceToday.timestamp));
                     locationCard.innerHTML = `
-                        <div class="bg-red-50 border border-red-200 text-red-600 rounded-lg p-4 mt-4 select-none">
-                            ${message}
+                        <div class="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-4 mt-4 select-none">
+                            Anda sudah absen hari ini pada pukul ${recordedTime}.
                         </div>
                     `;
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
+                    employeeNameInput.value = '';
+                    detectBtn.disabled = true;
+                    return;
+                }
+
+                if (!navigator.geolocation) {
+                    locationCard.innerHTML = `
+                        <div class="bg-red-50 border border-red-200 text-red-600 rounded-lg p-4 mt-4 select-none">
+                            Browser Anda tidak mendukung deteksi lokasi.
+                        </div>
+                    `;
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    async function(position) {
+                        const { latitude, longitude } = position.coords;
+                        try {
+                            // Use GoMaps.pro for reverse geocoding for employee attendance
+                            const addressResult = await reverseGeocodeGoMaps(latitude, longitude);
+                            const address = addressResult || "Alamat tidak ditemukan";
+                            const now = new Date();
+
+                            const distance = getDistanceFromLatLonInMeters(latitude, longitude, officeLocation.latitude, officeLocation.longitude);
+                            const inLocation = distance <= officeLocation.acceptRadius;
+
+                            const keterangan = inLocation ? 'Di lokasi' : 'Di luar lokasi';
+
+                            let isLate = false;
+                            let lateMinutes = 0; 
+                            let penaltyAmount = 0; 
+
+                            const cutoffDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), lateCutoffHour, lateCutoffMinute, 0, 0);
+
+                            if (now.getTime() > cutoffDate.getTime()) {
+                                isLate = true;
+                                const diffMs = now.getTime() - cutoffDate.getTime();
+                                lateMinutes = Math.ceil(diffMs / (1000 * 60)); 
+                                penaltyAmount = lateMinutes * latePenaltyPerMinute;
+                            }
+
+                            let locationCardContent = '';
+                            let statusBadgeClass = '';
+                            let statusTextClass = '';
+                            let statusIcon = '';
+
+                            if (inLocation) {
+                                statusBadgeClass = 'bg-green-50 border-green-200';
+                                statusTextClass = 'text-green-700';
+                                statusIcon = `
+                                    <svg class="w-8 h-8 text-green-500 mb-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M5 13l4 4L19 7" />
+                                    </svg>
+                                `;
+                            } else {
+                                statusBadgeClass = 'urgent-alert'; 
+                                statusTextClass = 'text-red-700';
+                                statusIcon = `
+                                    <svg class="w-10 h-10 mb-3" fill="none" stroke="#b91c1c" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M12 9v2m0 4h.01M10.29 6.16a8 8 0 1113.42 10.69m-5.67-10.57L3 21" />
+                                    </svg>
+                                `;
+                            }
+
+                            let lateBadge = '';
+                            let penaltyInfo = '';
+
+                            if (isLate) {
+                                lateBadge = `
+                                    <div class="mt-3 text-red-600 font-bold flex items-center justify-center">
+                                        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                        TERLAMBAT: ${lateMinutes} menit
+                                    </div>
+                                `;
+                                penaltyInfo = `
+                                    <div class="text-red-700 font-bold mt-2">
+                                        Denda Keterlambatan: ${formatCurrency(penaltyAmount)}
+                                    </div>
+                                `;
+                            }
+
+
+                            locationCardContent = `
+                                    <div class="${statusBadgeClass} border rounded-xl p-5 mt-4 flex flex-col items-center select-text">
+                                        ${statusIcon}
+                                        <div class="${statusTextClass} font-semibold mb-1">${inLocation ? 'Absensi berhasil dicatat!' : 'PERINGATAN DARURAT: Karyawan tidak di lokasi kantor!'}</div>
+                                        <div class="text-gray-700 text-sm">Nama: <span class="font-semibold">${escapeHtml(employeeName)}</span></div>
+                                        <div class="text-gray-700 text-sm">Waktu: <span class="font-mono">${formatDate(now)}</span></div>
+                                        <div class="text-gray-700 text-sm">Latitude: <span class="font-mono">${latitude.toFixed(6)}</span></div>
+                                        <div class="text-gray-700 text-sm">Longitude: <span class="font-mono">${longitude.toFixed(6)}</span></div>
+                                        <div class="text-gray-700 text-sm mt-2">Alamat: <span class="font-mono">${escapeHtml(address)}</span></div>
+                                        <div class="${statusTextClass} font-bold mt-3 select-none">${keterangan}</div>
+                                        ${lateBadge} 
+                                        ${penaltyInfo} 
+                                    </div>
+                                `;
+                            locationCard.innerHTML = locationCardContent;
+
+                            const record = {
+                                name: employeeName,
+                                id: employeeId, 
+                                datetime: formatDate(now),
+                                latitude: latitude.toFixed(6),
+                                longitude: longitude.toFixed(6),
+                                address: address,
+                                keterangan: keterangan,
+                                isLate: isLate, 
+                                lateMinutes: lateMinutes, 
+                                penaltyAmount: penaltyAmount 
+                            };
+                            saveAttendanceRecord(record);
+
+                            employeeNameInput.value = '';
+                            detectBtn.disabled = true;
+
+                        } catch (error) {
+                            console.error("Error fetching address or processing location:", error);
+                            locationCard.innerHTML = `
+                                <div class="bg-red-50 border border-red-200 text-red-600 rounded-lg p-4 mt-4 select-none">
+                                    Gagal mendapatkan alamat atau mencatat absensi: ${error.message}
+                                </div>
+                            `;
+                        }
+                    },
+                    function(error) {
+                        let message = "Gagal mendeteksi lokasi.";
+                        if (error.code === 1) message = "Izin lokasi ditolak. Silakan izinkan akses lokasi pada browser Anda.";
+                        else if (error.code === 2) message = "Lokasi tidak tersedia.";
+                        else if (error.code === 3) message = "Permintaan lokasi melebihi waktu tunggu.";
+                        locationCard.innerHTML = `
+                            <div class="bg-red-50 border border-red-200 text-red-600 rounded-lg p-4 mt-4 select-none">
+                                ${message}
+                            </div>
+                        `;
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            };
+
+            // Start the GIF animation, then trigger the fade-out and content display after its duration
+            setTimeout(() => {
+                attendanceGifOverlay.classList.remove('show'); // Start fading out GIF
+                attendanceGifOverlay.addEventListener('transitionend', handleGifTransitionEnd, { once: true }); // Listen for GIF fade out to complete
+            }, ATTENDANCE_GIF_DURATION_MS); // Duration for the attendance GIF
         }
 
         // --- UI Logic and Event Listeners ---
@@ -1612,6 +1675,7 @@
                 detectBtn.disabled = true;
                 return;
             }
+            // Call recordAttendance which now handles the GIF display
             recordAttendance(registeredEmployee.name, registeredEmployee.id);
         });
 
@@ -1918,6 +1982,7 @@
             const registeredEmployee = currentRegisteredEmployees.find(emp => emp.id === scannedId);
 
             if (registeredEmployee) {
+                // Call recordAttendance which now handles the GIF display
                 recordAttendance(registeredEmployee.name, registeredEmployee.id);
                 closeQrScannerModalBtn.click(); 
             } else {
